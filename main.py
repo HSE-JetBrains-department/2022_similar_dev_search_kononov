@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 from dulwich.repo import Repo
 from dulwich.walk import WalkEntry
@@ -22,9 +22,9 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     added = 0
     deleted = 0
     for j in diffs:
-        if j[0] == '+':
+        if j[0] == '+' and j[1] != '+':
             added += 1
-        elif j[0] == '-':
+        elif j[0] == '-' and j[1] != '-':
             deleted += 1
 
     return added, deleted
@@ -43,60 +43,73 @@ def get_diff(repo: Repo, entry: WalkEntry) -> dict:
     """
     res = {}
     for c in entry.changes():
-        res[str(c.new.path)] = {}
+        path = c.new.path.decode()
+        res[path] = {}
 
         try:
             if c.old.sha is None:
-                res[str(c.new.path)]['added'] = len(repo.get_object(c.new.sha).data.decode().splitlines())
-                res[str(c.new.path)]['deleted'] = 0
-                res[str(c.new.path)]['blob_id'] = str(repo.get_object(c.new.sha).id)
+                res[path]['added'] = len(repo.get_object(c.new.sha).data.decode().splitlines())
+                res[path]['deleted'] = 0
+                res[path]['blob_id'] = str(repo.get_object(c.new.sha).id.decode())
             elif c.new.sha is None:
-                res[str(c.new.path)]['added'] = 0
-                res[str(c.new.path)]['deleted'] = len(repo.get_object(c.old.sha).data.decode().splitlines())
-                res[str(c.new.path)]['blob_id'] = str(repo.get_object(c.old.sha).id)
+                res[path]['added'] = 0
+                res[path]['deleted'] = len(repo.get_object(c.old.sha).data.decode().splitlines())
+                res[path]['blob_id'] = str(repo.get_object(c.old.sha).id.decode())
             else:
-                res[str(c.new.path)]['added'], res[str(c.new.path)]['deleted'] = calc_diff(repo, c)
-                res[str(c.new.path)]['blob_id'] = str(repo.get_object(c.old.sha).id)
+                res[path]['added'], res[path]['deleted'] = calc_diff(repo, c)
+                res[path]['blob_id'] = str(repo.get_object(c.old.sha).id.decode())
 
         except UnicodeDecodeError:
-            del res[str(c.new.path)]
+            del res[path]
             continue
     return res
 
 
-def form(repo: Repo) -> dict:
+def form(repo: Repo, url: str) -> List:
     """
     form a dictionary out of a repository
 
     :param repo: pending repository
+    :param url: repository github url
     :return: repository in a dictionary form
     """
-    res = {}
-    # i = 0
+    res = []
+    i = 0
 
     for c in repo.get_walker():
-        # if i == 10:
+        #if i == 10:
         #    break
+        # take only 1-parent or 0-parent commits
         if len(c.commit.parents) <= 1:
-            res[str(c.commit.author)] = {}
-            res[str(c.commit.author)][str(c.commit.sha().hexdigest())] = get_diff(repo, c)
-        # i += 1
+            diffs = get_diff(repo, c)
+
+            for path in diffs.keys():
+                commit = {'author': str(c.commit.author.decode()),
+                          'commit_sha': str(c.commit.id.decode()),
+                          'url': url,
+                          'path': path,
+                          'added': diffs[path]['added'],
+                          'deleted': diffs[path]['deleted'],
+                          'blob_id': diffs[path]['blob_id']}
+                res.append(commit)
+        #i += 1
 
     return res
 
 
-def repo_to_json(name: str, json_name: str):
+def repo_to_json(name: str, url: str, json_name: str):
     """
     writes repository to json
 
     :param name: repository name
+    :param url: repository github url
     :param json_name: file name
     """
     r = Repo(name)
-    res = json.JSONEncoder().encode(form(r))
+    res = json.JSONEncoder().encode(form(r, url))
 
     with open(json_name, 'w') as f:
         f.write(res)
 
 
-repo_to_json('scikit-learn', 'res.json')
+repo_to_json('scikit-learn', 'https://github.com/scikit-learn/scikit-learn', 'res2.json')
