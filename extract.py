@@ -1,11 +1,11 @@
+from collections import defaultdict
 import difflib
 import json
+from typing import List, Tuple
 
-from collections import defaultdict
+from dulwich.diff_tree import TreeChange
 from dulwich.repo import Repo
 from dulwich.walk import WalkEntry
-from dulwich.diff_tree import TreeChange
-from typing import Tuple, List
 
 
 def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
@@ -40,7 +40,7 @@ def get_diff(repo: Repo, entry: WalkEntry) -> dict:
 
     :param repo: pending repository
     :param entry: commit object
-    :return: info in form of dict {TODO}
+    :return: info in form of dict
     """
     res = defaultdict(dict)
     for c in entry.changes():
