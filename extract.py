@@ -1,37 +1,75 @@
 from collections import defaultdict
 import difflib
 import json
-from typing import List, Tuple
+import logging
+from typing import List, Tuple, Dict, Any, Generator
 
 from dulwich.diff_tree import TreeChange
 from dulwich.repo import Repo
 from dulwich.walk import WalkEntry
 
+logger = logging.getLogger(__name__)
+
+
+def is_binary(repo, change) -> bool:
+    """
+    Checks if this blob is for binary file
+    :param repo: repository with change
+    :param change: single change between two trees
+    :return: does this blob contain non utf-8 characters
+    """
+    sha = (change.new.sha or change.old.sha)
+    try:
+        repo.get_object(sha).data.decode()
+    except UnicodeDecodeError as e:
+        return str(e).startswith("'utf-8' codec can't decode byte")
+    return False
+
+
+def into_lines(repo: Repo, sha: bytes) -> List[str]:
+    return repo.get_object(sha).data.decode().splitlines()
+
 
 def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     """
-    Get amount of added and deleted lines
+    Get number of added and deleted lines
 
     :param repo: repository with change
     :param change: single change between two trees
     :return: number of lines added/deleted
     """
-    d = difflib.Differ()
-    diffs = d.compare(repo.get_object(change.old.sha).data.decode().splitlines(),
-                      repo.get_object(change.new.sha).data.decode().splitlines())
+    diff = difflib.Differ()
+    diffs = diff.compare(into_lines(repo, change.old.sha),
+                         into_lines(repo, change.new.sha))
 
     added = 0
     deleted = 0
-    for j in diffs:
-        if j[0] == "+" and j[1] != "+":
+    for i in diffs:
+        if i[0] == "+" and i[1] != "+":
             added += 1
-        elif j[0] == "-" and j[1] != "-":
+        elif i[0] == "-" and i[1] != "-":
             deleted += 1
 
     return added, deleted
 
 
-def get_diff(repo: Repo, entry: WalkEntry) -> dict:
+def process_only_blob(repo: Repo, sha: bytes, path: str, change_dict: defaultdict, missing: str, existing: str):
+    """
+    Write number of added and deleted lines for a file if it was created or deleted
+
+    :param repo: repository with change
+    :param sha: sha of blob
+    :param path: path to file
+    :param change_dict: dictionary of corresponding change
+    :param missing: nullified parameter for number of lines
+    :param existing: calculated number of lines parameter
+    """
+    change_dict[path][existing] = len(into_lines(repo, sha))
+    change_dict[path][missing] = 0
+    change_dict[path]["blob_id"] = str(repo.get_object(sha).id.decode()) if missing == "deleted" else str(None)
+
+
+def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
     """
     Get information about commit such as:
         number of added lines for each file
@@ -43,28 +81,28 @@ def get_diff(repo: Repo, entry: WalkEntry) -> dict:
     :return: info in form of dict
     """
     res = defaultdict(dict)
-    for c in entry.changes():
-        path = c.new.path.decode()
-        try:
-            if c.old.sha is None:
-                res[path]["added"] = len(repo.get_object(c.new.sha).data.decode().splitlines())
-                res[path]["deleted"] = 0
-                res[path]["blob_id"] = str(repo.get_object(c.new.sha).id.decode())
-            elif c.new.sha is None:
-                res[path]["added"] = 0
-                res[path]["deleted"] = len(repo.get_object(c.old.sha).data.decode().splitlines())
-                res[path]["blob_id"] = str(repo.get_object(c.old.sha).id.decode())
-            else:
-                res[path]["added"], res[path]["deleted"] = calc_diff(repo, c)
-                res[path]["blob_id"] = str(repo.get_object(c.old.sha).id.decode())
+    for change in entry.changes():
+        if is_binary(repo, change):
+            continue
 
-        # Handling of binary of corrupted files
-        except UnicodeDecodeError:
+        path = (change.new.path or change.old.path).decode()
+        try:
+            if change.old.sha is None:
+                process_only_blob(repo, change.new.sha, path, res, "deleted", "added")
+            elif change.new.sha is None:
+                process_only_blob(repo, change.old.sha, path, res, "added", "deleted")
+            else:
+                res[path]["added"], res[path]["deleted"] = calc_diff(repo, change)
+                res[path]["blob_id"] = str(repo.get_object(change.new.sha).id.decode())
+
+        # Handling corrupted files
+        except UnicodeDecodeError as e:
+            logger.error(f"exception in repository: {repo.path}, file: {path}, cause: {e}")
             continue
     return res
 
 
-def form(repo: Repo, url: str) -> List:
+def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, None]:
     """
     Form a list of blob changes out of a repository
 
@@ -72,9 +110,8 @@ def form(repo: Repo, url: str) -> List:
     :param url: repository github url
     :return: repository in a list form
     """
-    res = []
-
     for entry in repo.get_walker():
+
         # Take only 1-parent or 0-parent commits
         if len(entry.commit.parents) <= 1:
             diffs = get_diff(repo, entry)
@@ -87,21 +124,19 @@ def form(repo: Repo, url: str) -> List:
                           "added": diffs[path]["added"],
                           "deleted": diffs[path]["deleted"],
                           "blob_id": diffs[path]["blob_id"]}
-                res.append(commit)
-
-    return res
+                yield commit
 
 
-def repo_to_json(name: str, url: str, json_name: str):
+def repo_to_jsonl(name: str, url: str, json_name: str):
     """
-    Writes repository to json
+    Writes repository to jsonl
 
     :param name: repository name
     :param url: repository github url
     :param json_name: file name
     """
-    r = Repo(name)
-    res = json.JSONEncoder().encode(form(r, url))
-
-    with open(json_name, "w") as f:
-        f.write(res)
+    repo = Repo(name)
+    for commit in get_repo_changes(repo, url):
+        with open(json_name, "a") as file:
+            file.write(json.dumps(commit))
+            file.write("\n")
