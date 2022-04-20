@@ -116,13 +116,9 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
     :param url: repository github url
     :return: repository in a list form
     """
-    i=0
     for entry in repo.get_walker():
         # Take only 1-parent or 0-parent commits
         if len(entry.commit.parents) <= 1:
-            i += 1
-            if i > 10:
-                return
             diffs = get_diff(repo, entry)
 
             for path in diffs.keys():
