@@ -11,7 +11,7 @@ from dulwich.walk import WalkEntry
 logger = logging.getLogger(__name__)
 
 
-def is_binary(repo, change) -> bool:
+def is_binary(repo: Repo, change: TreeChange) -> bool:
     """
     Checks if this blob is for binary file
     :param repo: repository with change
@@ -27,13 +27,18 @@ def is_binary(repo, change) -> bool:
 
 
 def into_lines(repo: Repo, sha: bytes) -> List[str]:
+    """
+    Get lines of blob
+    :param repo: repository of blob
+    :param sha: sha of blob
+    :return: list of lines in blob
+    """
     return repo.get_object(sha).data.decode().splitlines()
 
 
 def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     """
     Get number of added and deleted lines
-
     :param repo: repository with change
     :param change: single change between two trees
     :return: number of lines added/deleted
@@ -53,10 +58,10 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     return added, deleted
 
 
-def process_only_blob(repo: Repo, sha: bytes, path: str, change_dict: defaultdict, missing: str, existing: str):
+def process_only_blob(repo: Repo, sha: bytes, path: str, change_dict: defaultdict, missing: str,
+                      existing: str):
     """
     Write number of added and deleted lines for a file if it was created or deleted
-
     :param repo: repository with change
     :param sha: sha of blob
     :param path: path to file
@@ -66,7 +71,8 @@ def process_only_blob(repo: Repo, sha: bytes, path: str, change_dict: defaultdic
     """
     change_dict[path][existing] = len(into_lines(repo, sha))
     change_dict[path][missing] = 0
-    change_dict[path]["blob_id"] = str(repo.get_object(sha).id.decode()) if missing == "deleted" else str(None)
+    change_dict[path]["blob_id"] = str(
+        repo.get_object(sha).id.decode()) if missing == "deleted" else str(None)
 
 
 def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
@@ -75,7 +81,6 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
         number of added lines for each file
         number of deleted lines for each file
         blob_id for each file
-
     :param repo: pending repository
     :param entry: commit object
     :return: info in form of dict
@@ -84,20 +89,22 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
     for change in entry.changes():
         if is_binary(repo, change):
             continue
-
-        path = (change.new.path or change.old.path).decode()
         try:
             if change.old.sha is None:
-                process_only_blob(repo, change.new.sha, path, res, "deleted", "added")
+                process_only_blob(repo, change.new.sha, change.new.path.decode(), res, "deleted",
+                                  "added")
             elif change.new.sha is None:
-                process_only_blob(repo, change.old.sha, path, res, "added", "deleted")
+                process_only_blob(repo, change.old.sha, change.old.path.decode(), res, "added",
+                                  "deleted")
             else:
+                path = change.new.path.decode()
                 res[path]["added"], res[path]["deleted"] = calc_diff(repo, change)
                 res[path]["blob_id"] = str(repo.get_object(change.new.sha).id.decode())
 
-        # Handling corrupted files
         except UnicodeDecodeError as e:
-            logger.error(f"exception in repository: {repo.path}, file: {path}, cause: {e}")
+            # Handling corrupted files
+            logger.error(f"Exception in repository: {repo.path},"
+                         f" file: {(change.new.path or change.old.path).decode()}, cause: {e}")
             continue
     return res
 
@@ -105,15 +112,17 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
 def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, None]:
     """
     Form a list of blob changes out of a repository
-
     :param repo: pending repository
     :param url: repository github url
     :return: repository in a list form
     """
+    i=0
     for entry in repo.get_walker():
-
         # Take only 1-parent or 0-parent commits
         if len(entry.commit.parents) <= 1:
+            i += 1
+            if i > 10:
+                return
             diffs = get_diff(repo, entry)
 
             for path in diffs.keys():
@@ -127,16 +136,23 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
                 yield commit
 
 
-def repo_to_jsonl(name: str, url: str, json_name: str):
+def repo_to_json(name: str, url: str, json_path: str):
     """
     Writes repository to jsonl
-
     :param name: repository name
     :param url: repository github url
-    :param json_name: file name
+    :param json_path: file path
     """
     repo = Repo(name)
     for commit in get_repo_changes(repo, url):
-        with open(json_name, "a") as file:
-            file.write(json.dumps(commit))
-            file.write("\n")
+        save_to_json(commit, json_path)
+
+
+def save_to_json(data, json_path: str):
+    """
+    Save serializable data to json format
+    :param data: json-serializable data
+    :param json_path: path to json file
+    """
+    with open(json_path, "a") as file:
+        file.write(json.dumps(data) + "\n")

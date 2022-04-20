@@ -9,8 +9,7 @@ from github import RateLimitExceededException, Github, Repository
 logger = logging.getLogger(__name__)
 
 
-def get_repo(repo_name: str,
-             github_account: Github) -> Repository:
+def get_repo(repo_name: str, github_account: Github) -> Repository:
     """
     Get repository with specified name
     :param repo_name: specified name
@@ -31,16 +30,15 @@ def get_repo(repo_name: str,
 def wait_for_request(github_account: Github):
     """
     Wait until github api is usable again
-
     :param github_account: account
     """
     search_rate_limit = github_account.get_rate_limit().search
     reset_timestamp = calendar.timegm(search_rate_limit.reset.timetuple())
 
-    time.sleep(max(0.001, reset_timestamp - calendar.timegm(time.gmtime())))
+    time.sleep(max(0, reset_timestamp - calendar.timegm(time.gmtime())))
 
 
-def process_stargazers(repo_name: str,
+def extract_stargazers(repo_name: str,
                        key: str,
                        repos_per_user: int = 10,
                        stargazers_number: int = 10,
@@ -58,7 +56,7 @@ def process_stargazers(repo_name: str,
     :return: dictionary[repo_name, number_of_stars]
     """
     if key is None:
-        raise ValueError("you should specify access_token or token_env_key")
+        raise ValueError("Specify github key")
 
     github_account = Github(key)
     repo = get_repo(repo_name, github_account)
@@ -68,25 +66,23 @@ def process_stargazers(repo_name: str,
     # add number of stargazers for initial repo
     stars_per_repo[repo.full_name] = repo.stargazers_count
 
-    i = 0
+    viewed_stargazers_number = 0
     for user in repo.get_stargazers():
-        if i == stargazers_number:
+        if viewed_stargazers_number == stargazers_number:
             break
-        i += 1
-        j = 1
+        viewed_stargazers_number += 1
+        starred_repos_number = 1
         try:
             for starred_repo in user.get_starred():
-                if j >= repos_per_user:
+                if starred_repos_number > repos_per_user:
                     break
                 # initial repository is not counted
                 if starred_repo == repo:
                     continue
                 stars_per_repo[starred_repo.full_name] += 1
-                j += 1
+                starred_repos_number += 1
         except RateLimitExceededException as e:
             logger.exception(e)
             wait_for_request(github_account)
-        except Exception as e:
-            logger.exception(f"unexpected exception - {e}")
 
     return dict(stars_per_repo.most_common(top_repos_number))
