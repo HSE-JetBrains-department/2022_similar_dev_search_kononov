@@ -5,6 +5,10 @@ from stargazers import extract_stargazers
 
 
 def add_extract_command(subparsers_action: argparse.Action):
+    """
+    Add subparser for repository extraction
+    :param subparsers_action: exposed action of main parser
+    """
     extract_parser = subparsers_action.add_parser("extract")
     extract_parser.add_argument("-rn", "--repo-name", type=str,
                                 help="Name of extracted repository")
@@ -16,6 +20,10 @@ def add_extract_command(subparsers_action: argparse.Action):
 
 
 def add_stargazers_command(subparsers_action: argparse.Action):
+    """
+    Add subparser for getting top repositories that stargazers starred
+    :param subparsers_action: exposed action of main parser
+    """
     stargazers_parser = subparsers_action.add_parser("stargazers")
     stargazers_parser.add_argument("-rp", "--repo-path", type=str,
                                    help="Path of repository with stargazers.")

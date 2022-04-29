@@ -2,7 +2,7 @@ from collections import defaultdict
 import difflib
 import json
 import logging
-from typing import List, Tuple, Dict, Any, Generator
+from typing import Any, Dict, Generator, List, Tuple
 
 from dulwich.diff_tree import TreeChange
 from dulwich.repo import Repo
@@ -22,7 +22,7 @@ def is_binary(repo: Repo, change: TreeChange) -> bool:
     try:
         repo.get_object(sha).data.decode()
     except UnicodeDecodeError as e:
-        return str(e).startswith("'utf-8' codec can't decode byte")
+        return True
     return False
 
 
@@ -43,16 +43,15 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     :param change: single change between two trees
     :return: number of lines added/deleted
     """
-    diff = difflib.Differ()
-    diffs = diff.compare(into_lines(repo, change.old.sha),
-                         into_lines(repo, change.new.sha))
-
+    diff_calc = difflib.Differ()
+    diffs = diff_calc.compare(into_lines(repo, change.old.sha),
+                              into_lines(repo, change.new.sha))
     added = 0
     deleted = 0
-    for i in diffs:
-        if i[0] == "+" and i[1] != "+":
+    for diff in diffs:
+        if diff[0] == "+" and diff[1] != "+":
             added += 1
-        elif i[0] == "-" and i[1] != "-":
+        elif diff[0] == "-" and diff[1] != "-":
             deleted += 1
 
     return added, deleted
@@ -91,11 +90,19 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
             continue
         try:
             if change.old.sha is None:
-                process_only_blob(repo, change.new.sha, change.new.path.decode(), res, "deleted",
-                                  "added")
+                process_only_blob(repo=repo,
+                                  sha=change.new.sha,
+                                  path=change.new.path.decode(),
+                                  change_dict=res,
+                                  missing="deleted",
+                                  existing="added")
             elif change.new.sha is None:
-                process_only_blob(repo, change.old.sha, change.old.path.decode(), res, "added",
-                                  "deleted")
+                process_only_blob(repo=repo,
+                                  sha=change.old.sha,
+                                  path=change.old.path.decode(),
+                                  change_dict=res,
+                                  missing="added",
+                                  existing="deleted")
             else:
                 path = change.new.path.decode()
                 res[path]["added"], res[path]["deleted"] = calc_diff(repo, change)
@@ -114,7 +121,7 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
     Form a list of blob changes out of a repository
     :param repo: pending repository
     :param url: repository github url
-    :return: repository in a list form
+    :return: repository in a generator form
     """
     for entry in repo.get_walker():
         # Take only 1-parent or 0-parent commits

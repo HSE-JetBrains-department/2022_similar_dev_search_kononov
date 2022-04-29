@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Dict
 
-from github import RateLimitExceededException, Github, Repository
+from github import Github, RateLimitExceededException, Repository
 
 logger = logging.getLogger(__name__)
 
