@@ -15,8 +15,6 @@ def add_extract_command(subparsers_action: argparse.Action):
     extract_parser.add_argument("-ru", "--repo-url", type=str, help="Url of extracted repository")
     extract_parser.add_argument("-j", "--json-name", type=str,
                                 help="File name where repository data is stored")
-    extract_parser.add_argument("-rp", "--repo-path", type=str,
-                                help="Path of repository with stargazers")
 
 
 def add_stargazers_command(subparsers_action: argparse.Action):
@@ -28,15 +26,17 @@ def add_stargazers_command(subparsers_action: argparse.Action):
     stargazers_parser.add_argument("-rp", "--repo-path", type=str,
                                    help="Path of repository with stargazers.")
     stargazers_parser.add_argument("-k", "--key", type=str,
-                                   help="Path of repository with stargazers")
+                                   help="Github token")
     stargazers_parser.add_argument("-rpu", "--repos-per-user", type=str,
-                                   help="Path of repository with stargazers")
+                                   help="Number of starred repositories for user")
     stargazers_parser.add_argument("-sn", "--stargazers-number", type=str,
-                                   help="Path of repository with stargazers")
+                                   help="Number of stargazers")
     stargazers_parser.add_argument("-tr", "--top-repos-number", type=str,
-                                   help="Path of repository with stargazers")
+                                   help="Number of repositories with most stars")
     stargazers_parser.add_argument("-rp", "--repos-per-page", type=str,
-                                   help="Path of repository with stargazers")
+                                   help="Number of requests on each page")
+    stargazers_parser.add_argument("-j", "--json-name", type=str,
+                                   help="File name where stargazers` data is stored")
 
 
 if __name__ == "__main__":
@@ -45,13 +45,15 @@ if __name__ == "__main__":
     add_extract_command(subparsers)
 
     args = parser.parse_args()
-    print(args)
+    print(vars(args))
 
-    if args.repo_path is None:
-        repo_to_json(args.repo_name, args.repo_url, args.json_name)
+    if 'repo_path' in vars(args):
+        stargazers_map = extract_stargazers(repo_name=args.repo_path,
+                                            key=args.key,
+                                            repos_per_user=args.repos_per_user,
+                                            top_repos_number=args.top_repos_number,
+                                            )
+        with open(args.json_name) as file:
+            save_to_json(stargazers_map, file)
     else:
-        save_to_json(extract_stargazers(args.repo_path,
-                                        args.key,
-                                        args.repos_per_user,
-                                        args.top_repos_number,
-                                        ), "")
+        repo_to_json(name=args.repo_name, url=args.repo_url, json_path=args.json_name)

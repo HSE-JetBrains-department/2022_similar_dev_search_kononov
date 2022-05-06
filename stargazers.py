@@ -50,7 +50,7 @@ def extract_stargazers(repo_name: str,
     :param repo_name: name of initial repository
     :param key: github token
     :param repos_per_user: number of starred repositories for each user
-    :param stargazers_number: number of stargazers for
+    :param stargazers_number: number of stargazers
     :param top_repos_number: number of repositories with most stars
     :param requests_per_page: number of requests on each page
     :return: dictionary[repo_name, number_of_stars]

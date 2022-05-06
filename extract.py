@@ -2,7 +2,7 @@ from collections import defaultdict
 import difflib
 import json
 import logging
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Generator, List, TextIO, Tuple
 
 from dulwich.diff_tree import TreeChange
 from dulwich.repo import Repo
@@ -21,7 +21,7 @@ def is_binary(repo: Repo, change: TreeChange) -> bool:
     sha = (change.new.sha or change.old.sha)
     try:
         repo.get_object(sha).data.decode()
-    except UnicodeDecodeError as e:
+    except UnicodeDecodeError:
         return True
     return False
 
@@ -46,19 +46,21 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     diff_calc = difflib.Differ()
     diffs = diff_calc.compare(into_lines(repo, change.old.sha),
                               into_lines(repo, change.new.sha))
+
     added = 0
     deleted = 0
     for diff in diffs:
-        if diff[0] == "+" and diff[1] != "+":
+        if diff[0] == "+":
             added += 1
-        elif diff[0] == "-" and diff[1] != "-":
+        elif diff[0] == "-":
             deleted += 1
 
     return added, deleted
 
 
-def process_only_blob(repo: Repo, sha: bytes, path: str, change_dict: defaultdict, missing: str,
-                      existing: str):
+def update_change_dictionary(repo: Repo, sha: bytes, path: str, change_dict: defaultdict,
+                             missing: str,
+                             existing: str):
     """
     Write number of added and deleted lines for a file if it was created or deleted
     :param repo: repository with change
@@ -90,19 +92,19 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
             continue
         try:
             if change.old.sha is None:
-                process_only_blob(repo=repo,
-                                  sha=change.new.sha,
-                                  path=change.new.path.decode(),
-                                  change_dict=res,
-                                  missing="deleted",
-                                  existing="added")
+                update_change_dictionary(repo=repo,
+                                         sha=change.new.sha,
+                                         path=change.new.path.decode(),
+                                         change_dict=res,
+                                         missing="deleted",
+                                         existing="added")
             elif change.new.sha is None:
-                process_only_blob(repo=repo,
-                                  sha=change.old.sha,
-                                  path=change.old.path.decode(),
-                                  change_dict=res,
-                                  missing="added",
-                                  existing="deleted")
+                update_change_dictionary(repo=repo,
+                                         sha=change.old.sha,
+                                         path=change.old.path.decode(),
+                                         change_dict=res,
+                                         missing="added",
+                                         existing="deleted")
             else:
                 path = change.new.path.decode()
                 res[path]["added"], res[path]["deleted"] = calc_diff(repo, change)
@@ -147,15 +149,15 @@ def repo_to_json(name: str, url: str, json_path: str):
     :param json_path: file path
     """
     repo = Repo(name)
-    for commit in get_repo_changes(repo, url):
-        save_to_json(commit, json_path)
+    with open(json_path, 'w') as file:
+        for commit in get_repo_changes(repo, url):
+            save_to_json(commit, file)
 
 
-def save_to_json(data, json_path: str):
+def save_to_json(data, file: TextIO):
     """
     Save serializable data to json format
     :param data: json-serializable data
-    :param json_path: path to json file
+    :param file: opened json file
     """
-    with open(json_path, "a") as file:
-        file.write(json.dumps(data) + "\n")
+    file.write(json.dumps(data) + "\n")
