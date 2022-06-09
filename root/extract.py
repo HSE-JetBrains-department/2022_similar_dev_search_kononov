@@ -8,6 +8,8 @@ from dulwich.diff_tree import TreeChange
 from dulwich.repo import Repo
 from dulwich.walk import WalkEntry
 
+from dev_stats import add_file_to_dev_stats
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,7 +48,6 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     diff_calc = difflib.Differ()
     diffs = diff_calc.compare(into_lines(repo, change.old.sha),
                               into_lines(repo, change.new.sha))
-
     added = 0
     deleted = 0
     for diff in diffs:
@@ -109,7 +110,6 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
                 path = change.new.path.decode()
                 res[path]["added"], res[path]["deleted"] = calc_diff(repo, change)
                 res[path]["blob_id"] = str(repo.get_object(change.new.sha).id.decode())
-
         except UnicodeDecodeError as e:
             # Handling corrupted files
             logger.error(f"Exception in repository: {repo.path},"
@@ -129,7 +129,6 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
         # Take only 1-parent or 0-parent commits
         if len(entry.commit.parents) <= 1:
             diffs = get_diff(repo, entry)
-
             for path in diffs.keys():
                 commit = {"author": str(entry.commit.author.decode()),
                           "commit_sha": str(entry.commit.id.decode()),
@@ -141,17 +140,20 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
                 yield commit
 
 
-def repo_to_json(name: str, url: str, json_path: str):
+def repo_to_json(name: str, url: str, jsonl_path: str, repo_dict: dict):
     """
     Writes repository to jsonl
     :param name: repository name
-    :param url: repository github url
-    :param json_path: file path
+    :param url: repository GitHub url
+    :param jsonl_path: file path
+    :param repo_dict: dictionary with paths of files in head revision
     """
     repo = Repo(name)
-    with open(json_path, 'w') as file:
+    with open(jsonl_path, "w", encoding="utf16") as file:
         for commit in get_repo_changes(repo, url):
-            save_to_json(commit, file)
+            if commit["path"] in repo_dict:
+                add_file_to_dev_stats(repo_dict[commit["path"]])
+            # save_to_json(commit, file)
 
 
 def save_to_json(data, file: TextIO):
@@ -161,3 +163,8 @@ def save_to_json(data, file: TextIO):
     :param file: opened json file
     """
     file.write(json.dumps(data) + "\n")
+
+
+if __name__ == "__main__":
+    repo_to_json("scikit-learn", "https://github.com/scikit-learn/scikit-learn",
+                 "../used_jsons/extract.jsonl")

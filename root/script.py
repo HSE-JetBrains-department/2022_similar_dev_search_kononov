@@ -56,4 +56,4 @@ if __name__ == "__main__":
         with open(args.json_name) as file:
             save_to_json(stargazers_map, file)
     else:
-        repo_to_json(name=args.repo_name, url=args.repo_url, json_path=args.json_name)
+        repo_to_json(name=args.repo_name, url=args.repo_url, jsonl_path=args.json_name)
