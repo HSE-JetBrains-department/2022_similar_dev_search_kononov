@@ -28,6 +28,7 @@ def extract_languages(repo_path: str):
                 if language_json["language"] != "" and not language_json["vendored"]:
                     add_file_language_info(root, language_json, file_dict)
         json_file.write(json.dumps(file_dict))
+    return file_dict
 
 
 def get_enry_result(file_path: str) -> dict:

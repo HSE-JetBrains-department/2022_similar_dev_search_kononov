@@ -148,12 +148,15 @@ def repo_to_json(name: str, url: str, jsonl_path: str, repo_dict: dict):
     :param jsonl_path: file path
     :param repo_dict: dictionary with paths of files in head revision
     """
-    repo = Repo(name)
+    repo = Repo("../repos/" + name)
     with open(jsonl_path, "w", encoding="utf16") as file:
         for commit in get_repo_changes(repo, url):
-            if commit["path"] in repo_dict:
-                add_file_to_dev_stats(repo_dict[commit["path"]])
-            # save_to_json(commit, file)
+            if "../repos/" + name + "/" + commit["path"] in repo_dict:
+                repo_dict["../repos/" + name + "/" + commit["path"]]["author"] = commit["author"]
+                repo_dict["../repos/" + name + "/" + commit["path"]]["added"] = commit["added"]
+                repo_dict["../repos/" + name + "/" + commit["path"]]["deleted"] = commit["deleted"]
+                add_file_to_dev_stats(repo_dict["../repos/" + name + "/" + commit["path"]])
+            save_to_json(commit, file)
 
 
 def save_to_json(data, file: TextIO):
@@ -163,8 +166,3 @@ def save_to_json(data, file: TextIO):
     :param file: opened json file
     """
     file.write(json.dumps(data) + "\n")
-
-
-if __name__ == "__main__":
-    repo_to_json("scikit-learn", "https://github.com/scikit-learn/scikit-learn",
-                 "../used_jsons/extract.jsonl")

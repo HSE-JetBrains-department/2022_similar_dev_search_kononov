@@ -23,12 +23,13 @@ def add_file_to_dev_stats(file: dict):
     to a respective developer
     :param file: added file
     """
+    if file["author"] not in dev_stats:
+        dev_stats[file["author"]] = {"languages": Counter(), "variables": Counter(),
+                                     "classes": Counter(), "functions": Counter()}
     author = dev_stats[file["author"]]
-    if author is None:
-        dev_stats[file["author"]] = {"languages": Counter(), "names": Counter()}
-        author = dev_stats[file["author"]]
     author["languages"][file["language"]] += file["added"]
-    weight = file["added"] / file["lines"]
-    for name in file["names"]:
-        # if currently file has fewer lines than author added, weight > 1 - bad case.
-        author["names"][name.key] += min(1, weight) * name.value
+    weight = file["added"] / file["lines_number"]
+    for identifier in ["variables", "classes", "functions"]:
+        for name in file[identifier]:
+            # if currently file has fewer lines than author added, weight > 1 - bad case.
+            author[identifier][name] += min(1, weight) * file[identifier][name]
