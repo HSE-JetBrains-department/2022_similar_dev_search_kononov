@@ -1,19 +1,19 @@
-import ast
 from collections import defaultdict
 import json
 import os
+from pathlib import Path
 import platform
 import subprocess
 
 from tqdm import tqdm
 
-from extract import logger
-from treesitter import queries, save_identifiers
+from globals import enry_folder, logger, repo_info_folder
+from treesitter import QUERIES, save_identifiers
 
 unparseable_languages = set()
 
 
-def extract_languages(repo_path: str):
+def extract_languages(repo_path: Path):
     """
     Traverse repository directory, for each programming language file create a json using enry,
     write json to jsonl file
@@ -21,13 +21,15 @@ def extract_languages(repo_path: str):
     """
     path = os.walk(repo_path)
     file_dict = defaultdict(dict)
-    with open("../used_jsons/" + repo_path.split("/")[-1] + ".json", "w") as json_file:
+    with open(repo_info_folder / (repo_path.stem + ".json"), "w") as json_file:
         for root, _, files in tqdm(path):
+            root = Path(root)
             for file in files:
-                language_json = get_enry_result(root + "/" + file)
+                language_json = get_enry_result(root / file)
                 if language_json["language"] != "" and not language_json["vendored"]:
                     add_file_language_info(root, language_json, file_dict)
         json_file.write(json.dumps(file_dict))
+    return file_dict
 
 
 def get_enry_result(file_path: str) -> dict:
@@ -37,24 +39,22 @@ def get_enry_result(file_path: str) -> dict:
     :return: dictionary with language and number of lines in file
     """
     enry_result = subprocess.check_output(
-        [".././enry.exe" if platform.system() == "Windows" else "./enry", "-json",
+        [str(enry_folder) + "/./enry.exe" if platform.system() == "Windows"
+         else str(enry_folder) + "/./enry", "-json",
          file_path], text=True)
-    return ast.literal_eval(
-        enry_result.replace(":false", ":False").replace(":true", ":True"))
+    return json.loads(enry_result)
 
 
-def add_file_language_info(root: str, file_info: dict, repo_dict: dict):
+def add_file_language_info(root: Path, file_info: dict, repo_dict: dict):
     """
-
-    :param root:
-    :param file_info:
-    :param repo_dict:
-    :return:
+    Add information about file received from enry call
+    :param root: path to root directory of repository
+    :param file_info: dictionary with file information
+    :param repo_dict: dictionary conatining file_info dictionaries for its files
     """
     file_info["language"] = file_info["language"].lower()
-    if file_info["language"] in queries:
-        file_info["path"] = root.replace("\\", "/") \
-                            + "/" + file_info["filename"]
+    if file_info["language"] in QUERIES:
+        file_info["path"] = str(root / file_info["filename"])
         repo_dict[file_info["path"]] = {"language": file_info["language"],
                                         "lines_number": file_info["total_lines"]}
         save_identifiers(file_info["path"], repo_dict)

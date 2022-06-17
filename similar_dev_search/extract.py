@@ -1,7 +1,7 @@
 from collections import defaultdict
 import difflib
 import json
-import logging
+from pathlib import Path
 from typing import Any, Dict, Generator, List, TextIO, Tuple
 
 from dulwich.diff_tree import TreeChange
@@ -9,8 +9,7 @@ from dulwich.repo import Repo
 from dulwich.walk import WalkEntry
 
 from dev_stats import add_file_to_dev_stats
-
-logger = logging.getLogger(__name__)
+import globals
 
 
 def is_binary(repo: Repo, change: TreeChange) -> bool:
@@ -112,7 +111,7 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
                 res[path]["blob_id"] = str(repo.get_object(change.new.sha).id.decode())
         except UnicodeDecodeError as e:
             # Handling corrupted files
-            logger.error(f"Exception in repository: {repo.path},"
+            globals.logger.error(f"Exception in repository: {repo.path},"
                          f" file: {(change.new.path or change.old.path).decode()}, cause: {e}")
             continue
     return res
@@ -140,7 +139,7 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
                 yield commit
 
 
-def repo_to_json(name: str, url: str, jsonl_path: str, repo_dict: dict):
+def repo_to_json(name: str, url: str, jsonl_path: Path, repo_dict: dict):
     """
     Writes repository to jsonl
     :param name: repository name
@@ -148,12 +147,15 @@ def repo_to_json(name: str, url: str, jsonl_path: str, repo_dict: dict):
     :param jsonl_path: file path
     :param repo_dict: dictionary with paths of files in head revision
     """
-    repo = Repo(name)
-    with open(jsonl_path, "w", encoding="utf16") as file:
+    repo = Repo(globals.repo_folder / name)
+    with open(jsonl_path, "w", encoding="utf16") as file:  # TODO latin1
         for commit in get_repo_changes(repo, url):
-            if commit["path"] in repo_dict:
-                add_file_to_dev_stats(repo_dict[commit["path"]])
-            # save_to_json(commit, file)
+            if globals.repo_folder / name / commit["path"] in repo_dict:
+                repo_dict[globals.repo_folder / name / commit["path"]]["author"] = commit["author"]
+                repo_dict[globals.repo_folder / name / + commit["path"]]["added"] = commit["added"]
+                repo_dict[globals.repo_folder / name / + commit["path"]]["deleted"] = commit["deleted"]
+                add_file_to_dev_stats(repo_dict[globals.repo_folder / name / + commit["path"]])
+            save_to_json(commit, file)
 
 
 def save_to_json(data, file: TextIO):
@@ -163,8 +165,3 @@ def save_to_json(data, file: TextIO):
     :param file: opened json file
     """
     file.write(json.dumps(data) + "\n")
-
-
-if __name__ == "__main__":
-    repo_to_json("scikit-learn", "https://github.com/scikit-learn/scikit-learn",
-                 "../used_jsons/extract.jsonl")

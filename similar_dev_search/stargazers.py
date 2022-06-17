@@ -86,8 +86,3 @@ def extract_stargazers(repo_name: str,
             logger.exception(e)
             wait_for_request(github_account)
     return dict(stars_per_repo.most_common(top_repos_number))
-
-
-if __name__ == "__main__":
-    print()
-    #clone_found_repos()
