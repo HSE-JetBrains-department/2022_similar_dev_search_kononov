@@ -112,7 +112,7 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
         except UnicodeDecodeError as e:
             # Handling corrupted files
             globals.logger.error(f"Exception in repository: {repo.path},"
-                         f" file: {(change.new.path or change.old.path).decode()}, cause: {e}")
+                                 f" file: {(change.new.path or change.old.path).decode()}, cause: {e}")
             continue
     return res
 
@@ -148,13 +148,16 @@ def repo_to_json(name: str, url: str, jsonl_path: Path, repo_dict: dict):
     :param repo_dict: dictionary with paths of files in head revision
     """
     repo = Repo(globals.repo_folder / name)
-    with open(jsonl_path, "w", encoding="utf16") as file:  # TODO latin1
+    with open(jsonl_path, "w", encoding="latin1") as file:
         for commit in get_repo_changes(repo, url):
-            if globals.repo_folder / name / commit["path"] in repo_dict:
-                repo_dict[globals.repo_folder / name / commit["path"]]["author"] = commit["author"]
-                repo_dict[globals.repo_folder / name / + commit["path"]]["added"] = commit["added"]
-                repo_dict[globals.repo_folder / name / + commit["path"]]["deleted"] = commit["deleted"]
-                add_file_to_dev_stats(repo_dict[globals.repo_folder / name / + commit["path"]])
+            if str(globals.repo_folder / name / commit["path"]) in repo_dict:
+                repo_dict[str(globals.repo_folder / name / commit["path"])]["author"] \
+                    = commit["author"]
+                repo_dict[str(globals.repo_folder / name / commit["path"])]["added"] \
+                    = commit["added"]
+                repo_dict[str(globals.repo_folder / name / commit["path"])]["deleted"] \
+                    = commit["deleted"]
+                add_file_to_dev_stats(repo_dict[str(globals.repo_folder / name / commit["path"])])
             save_to_json(commit, file)
 
 

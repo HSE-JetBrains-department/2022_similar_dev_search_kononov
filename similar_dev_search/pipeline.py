@@ -27,14 +27,17 @@ def pipeline():
     """
     cloned_repos = os.listdir(globals.repo_folder)
     extracted_repos = os.listdir(globals.repo_info_folder)
-    with open(globals.repo_info_folder / "stargazers.json", "r") as file:
-        repos_list = map(lambda repo_name: repo_name.replace("/", "-"),
-                         json.loads(file.read()).keys())
+    with open(globals.results_folder / "stargazers.json", "r") as file:
+        repos_list = json.loads(file.read()).keys()
         for key in repos_list:
-            if key not in cloned_repos:
-                porcelain.clone("https://github.com/" + key, globals.repo_folder / key)
-            repo_dict = extract_languages(globals.repo_folder / key)  # 3. Add identifiers
+            key_without_slashes = key.replace("/", "-")
+            if key_without_slashes not in cloned_repos:
+                porcelain.clone("https://github.com/" + key,
+                                globals.repo_folder / key_without_slashes)
+            repo_dict = extract_languages(
+                globals.repo_folder / key_without_slashes)  # 3. Add identifiers
             # 4. Extract commits, 5. Add dev stats
-            repo_to_json(key, "https://github.com/", globals.repo_info_folder / key, repo_dict)
+            repo_to_json(key_without_slashes, "https://github.com/",
+                         globals.repo_info_folder / key_without_slashes, repo_dict)
     with open(globals.results_folder / "dev_stats.json", "w") as file:
         file.write(json.dumps(stats))
