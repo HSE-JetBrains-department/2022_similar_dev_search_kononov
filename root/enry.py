@@ -16,7 +16,7 @@ unparseable_languages = set()
 def extract_languages(repo_path: str):
     """
     Traverse repository directory, for each programming language file create a json using enry,
-    Write json to jsonl file
+    write json to jsonl file
     :param repo_path: path of extracted repository
     """
     path = os.walk(repo_path)
@@ -61,7 +61,3 @@ def add_file_language_info(root: str, file_info: dict, repo_dict: dict):
     elif file_info["language"] not in unparseable_languages:
         logger.error(f"Language {file_info['language']} is not parseable")
         unparseable_languages.add(file_info["language"])
-
-
-if __name__ == "__main__":
-    extract_languages("../scikit-learn/sklearn/svm")
