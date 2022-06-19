@@ -1,15 +1,13 @@
 from collections import defaultdict
 import difflib
-import json
-from pathlib import Path
-from typing import Any, Dict, Generator, List, TextIO, Tuple
+from typing import Any, Dict, Generator, List, Tuple
 
 from dulwich.diff_tree import TreeChange
 from dulwich.repo import Repo
 from dulwich.walk import WalkEntry
 
-from dev_stats import add_file_to_dev_stats
-import globals
+import setup
+from utils import split_name_and_mail
 
 
 def is_binary(repo: Repo, change: TreeChange) -> bool:
@@ -54,7 +52,6 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
             added += 1
         elif diff[0] == "-":
             deleted += 1
-
     return added, deleted
 
 
@@ -111,8 +108,9 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
                 res[path]["blob_id"] = str(repo.get_object(change.new.sha).id.decode())
         except UnicodeDecodeError as e:
             # Handling corrupted files
-            globals.logger.error(f"Exception in repository: {repo.path},"
-                                 f" file: {(change.new.path or change.old.path).decode()}, cause: {e}")
+            setup.logger.error(f"Exception in repository: {repo.path},"
+                               f" file: {(change.new.path or change.old.path).decode()},"
+                               f" cause: {e}")
             continue
     return res
 
@@ -121,7 +119,7 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
     """
     Form a list of blob changes out of a repository
     :param repo: pending repository
-    :param url: repository github url
+    :param url: repository GitHub url
     :return: repository in a generator form
     """
     for entry in repo.get_walker():
@@ -129,7 +127,9 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
         if len(entry.commit.parents) <= 1:
             diffs = get_diff(repo, entry)
             for path in diffs.keys():
-                commit = {"author": str(entry.commit.author.decode()),
+                (author, mail) = split_name_and_mail(str(entry.commit.author.decode()))
+                commit = {"author": author,
+                          "mail": mail,
                           "commit_sha": str(entry.commit.id.decode()),
                           "url": url,
                           "path": path,
@@ -137,34 +137,3 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
                           "deleted": diffs[path]["deleted"],
                           "blob_id": diffs[path]["blob_id"]}
                 yield commit
-
-
-def repo_to_json(name: str, url: str, jsonl_path: Path, repo_dict: dict):
-    """
-    Writes repository to jsonl
-    :param name: repository name
-    :param url: repository GitHub url
-    :param jsonl_path: file path
-    :param repo_dict: dictionary with paths of files in head revision
-    """
-    repo = Repo(globals.repo_folder / name)
-    with open(jsonl_path, "w", encoding="latin1") as file:
-        for commit in get_repo_changes(repo, url):
-            if str(globals.repo_folder / name / commit["path"]) in repo_dict:
-                repo_dict[str(globals.repo_folder / name / commit["path"])]["author"] \
-                    = commit["author"]
-                repo_dict[str(globals.repo_folder / name / commit["path"])]["added"] \
-                    = commit["added"]
-                repo_dict[str(globals.repo_folder / name / commit["path"])]["deleted"] \
-                    = commit["deleted"]
-                add_file_to_dev_stats(repo_dict[str(globals.repo_folder / name / commit["path"])])
-            save_to_json(commit, file)
-
-
-def save_to_json(data, file: TextIO):
-    """
-    Save serializable data to json format
-    :param data: json-serializable data
-    :param file: opened json file
-    """
-    file.write(json.dumps(data) + "\n")
