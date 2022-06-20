@@ -42,7 +42,7 @@ def wait_for_request(github_account: Github):
 def extract_stargazers(repo_name: str,
                        key: str,
                        repos_per_user: int = 100,
-                       stargazers_number: int = 1000,
+                       stargazers_number: int = 100,
                        top_repos_number: int = 100,
                        requests_per_page: int = 100
                        ) -> Dict[str, int]:

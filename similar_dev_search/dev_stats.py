@@ -5,7 +5,8 @@ from dulwich.repo import Repo
 
 from extract import get_repo_changes
 import setup
-from utils import compare_ngrams, get_ngrams, get_sorted_dict_by_value
+from utils import get_ngrams, get_ngrams_dict_overlap, get_sorted_dict_by_value, \
+    get_top_k_from_devs_by_metric
 
 
 class DevStats:
@@ -47,7 +48,7 @@ class DevStats:
     def get_experience(self) -> float:
         """
         Get total lines coded.
-        :return: total_lines in alll languages
+        :return: total_lines in all languages
         """
         total_lines = 0.0
         for _, lines in self.languages.items():
@@ -56,12 +57,11 @@ class DevStats:
 
     def get_ngrams(self, n=3) -> (dict, int):
         """
-        TODO
-        :param n:
-        :return:
+        Get all ngrams from classes', variables' and functions' identifiers
+        :param n: number of symbols in ngram
+        :return: tuple with ngram dictionary mapping ngrams to its usage score and overall score
         """
-        all_idents = dict(self.languages)
-        all_idents.update(self.classes)
+        all_idents = dict(self.classes)
         all_idents.update(self.variables)
         all_idents.update(self.functions)
         return get_ngrams(all_idents, n)
@@ -98,12 +98,6 @@ class AllDevStats:
         for commit in get_repo_changes(repo, url):
             commit_path = str(setup.repo_folder / name / commit["path"])
             if commit_path in repo_dict:
-                if commit["author"] not in self.devs:
-                    self.devs[commit["author"]] = DevStats()
-                # repo_dict[commit_path]["author"] = commit["author"]
-                # repo_dict[commit_path]["mail"] = commit["mail"]
-                # repo_dict[commit_path]["added"] = commit["added"]
-                # repo_dict[commit_path]["deleted"] = commit["deleted"]
                 self.devs[commit["author"]].update(repo_dict[commit_path], commit)
                 self.mails[commit["mail"]] = commit["author"]
 
@@ -113,7 +107,7 @@ class AllDevStats:
         and most used identifiers (by counting weighted ngrams)
         :param dev_name: name of a compared developer
         :param k: number of similar developers
-        :return: k similar developers by 3 parameters
+        :return: k similar developers by 3 metrics
         """
         precalculated_dev_lines = self.devs[dev_name].get_experience()
         scores = {}
@@ -124,17 +118,23 @@ class AllDevStats:
                 {"language_distance": language_distance,
                  "experience": min(dev_lines, other_dev_lines) / max(dev_lines, other_dev_lines),
                  "identifier_similarity": self.get_identifier_similarity(dev_name, other_dev_name)}
-        similar_by_language_use = dict(sorted(scores.items(),
-                                              key=lambda name, stats: stats["language_distance"]))
+        metrics = list(scores[dev_name])
+        del scores[dev_name]
+        similar_devs = {}
+        for metric in metrics:
+            similar_devs[metric] = get_top_k_from_devs_by_metric(scores, metric, k)
+        return similar_devs
 
     def get_language_distribution(self, compared_dev_name, other_dev_name,
                                   precalculated_dev_lines=-1.0) -> (float, float, float):
         """
-        TODO
-        :param compared_dev_name:
-        :param other_dev_name:
-        :param precalculated_dev_lines:
-        :return:
+        Get language use distance (how similar are languages used by developers)
+        and total lines coded for two developers
+        :param compared_dev_name: name of a developer, which is compared to all other
+        :param other_dev_name: name of other developer
+        :param precalculated_dev_lines: number of lines for compared developers,
+        calculated beforehand for faster execution
+        :return: distance for language use and number of total lines coded for both developers
         """
         dev_lines = self.devs[compared_dev_name].get_experience() \
             if precalculated_dev_lines == -1.0 else precalculated_dev_lines
@@ -155,14 +155,14 @@ class AllDevStats:
 
     def get_identifier_similarity(self, compared_dev_name, other_dev_name) -> float:
         """
-        TODO
-        :param compared_dev_name:
-        :param other_dev_name:
-        :return:
+        Get how similar are identifiers used by two developers.
+        :param compared_dev_name: first developer's name
+        :param other_dev_name: second developer's name
+        :return: score of identifier similarity
         """
         dev1_ngrams, sum_weight1 = self.devs[compared_dev_name].get_ngrams()
         dev2_ngrams, sum_weight2 = self.devs[other_dev_name].get_ngrams()
-        return compare_ngrams(dev1_ngrams, dev2_ngrams) / sum_weight1
+        return get_ngrams_dict_overlap(dev1_ngrams, dev2_ngrams) / sum_weight1
 
     def to_json(self):
         """
