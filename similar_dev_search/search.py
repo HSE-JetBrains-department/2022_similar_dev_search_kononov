@@ -22,20 +22,4 @@ def search(dev_name: str, stats_path: str):
                                  functions=info["functions"]))
                  for (name, info) in dicts_with_stats["devs"].items())
     all_dev_stats = AllDevStats(stats, dicts_with_stats["mails"])
-    dev_stats =
-    scores = {}
-    for dev in dev_stats["devs"]:
-        scores[dev] = get_scores(dev_name, dev, stats["devs"])
-
-
-
-
-def get_ngrams(dev_dict) -> dict:
-    print()
-
-
-def get_dev_stats(dev_name: str):
-    """
-    Get dev preferred languages, total lines in each language and most used identifiers
-    :param dev_name: name of developer
-    """
+    all_dev_stats.find_similar(dev_name, 5)

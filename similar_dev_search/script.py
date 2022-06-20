@@ -57,7 +57,8 @@ def add_search_command(subparsers_action: argparse.Action):
     search_parser = subparsers_action.add_parser("search", help="Find similar devs")
     search_parser.add_argument("-p", "--path", type=str, help="Path to json with dev stats",
                                required=True)
-    search_parser.add_argument("-n", "--name", type=str, help="Name of searched developer")
+    search_parser.add_argument("-n", "--name", type=str, help="Name of searched developer.Put it "
+                                                              "in quotations if contains spaces")
     search_parser.add_argument("-m", "--mail", type=str, help="Mail of searched developer")
 
 
@@ -73,7 +74,8 @@ def run_stargazers(stargazers_args: argparse.Namespace):
 
 
 if __name__ == "__main__":
-    "search -p s.json -n 'Alexey Kononov'"
+    ""
+    'search -p s.json -n "MassterMax"'
     "stats -rl st.json -p s.json"
     parser = argparse.ArgumentParser(prog="sds", description="Extract repository.")
     subparsers = parser.add_subparsers(dest="command")
