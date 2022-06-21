@@ -60,7 +60,8 @@ def get_ngrams_dict_overlap(ngrams1: dict, ngrams2: dict) -> float:
     """
     score = 0.0
     for ngram, weight in ngrams1.items():
-        score += min(weight, ngrams2[ngram])
+        if ngram in ngrams2:
+            score += min(weight, ngrams2[ngram])
     return score
 
 
