@@ -1,14 +1,13 @@
 from collections import defaultdict
 import difflib
-import json
-import logging
-from typing import Any, Dict, Generator, List, TextIO, Tuple
+from typing import Any, Dict, Generator, List, Tuple
 
 from dulwich.diff_tree import TreeChange
 from dulwich.repo import Repo
 from dulwich.walk import WalkEntry
 
-logger = logging.getLogger(__name__)
+import setup
+from utils import split_name_and_mail
 
 
 def is_binary(repo: Repo, change: TreeChange) -> bool:
@@ -46,7 +45,6 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     diff_calc = difflib.Differ()
     diffs = diff_calc.compare(into_lines(repo, change.old.sha),
                               into_lines(repo, change.new.sha))
-
     added = 0
     deleted = 0
     for diff in diffs:
@@ -54,7 +52,6 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
             added += 1
         elif diff[0] == "-":
             deleted += 1
-
     return added, deleted
 
 
@@ -109,11 +106,11 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
                 path = change.new.path.decode()
                 res[path]["added"], res[path]["deleted"] = calc_diff(repo, change)
                 res[path]["blob_id"] = str(repo.get_object(change.new.sha).id.decode())
-
         except UnicodeDecodeError as e:
             # Handling corrupted files
-            logger.error(f"Exception in repository: {repo.path},"
-                         f" file: {(change.new.path or change.old.path).decode()}, cause: {e}")
+            setup.logger.error(f"Exception in repository: {repo.path},"
+                               f" file: {(change.new.path or change.old.path).decode()},"
+                               f" cause: {e}")
             continue
     return res
 
@@ -122,16 +119,17 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
     """
     Form a list of blob changes out of a repository
     :param repo: pending repository
-    :param url: repository github url
+    :param url: repository GitHub url
     :return: repository in a generator form
     """
     for entry in repo.get_walker():
         # Take only 1-parent or 0-parent commits
         if len(entry.commit.parents) <= 1:
             diffs = get_diff(repo, entry)
-
             for path in diffs.keys():
-                commit = {"author": str(entry.commit.author.decode()),
+                (author, mail) = split_name_and_mail(str(entry.commit.author.decode()))
+                commit = {"author": author,
+                          "mail": mail,
                           "commit_sha": str(entry.commit.id.decode()),
                           "url": url,
                           "path": path,
@@ -139,25 +137,3 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
                           "deleted": diffs[path]["deleted"],
                           "blob_id": diffs[path]["blob_id"]}
                 yield commit
-
-
-def repo_to_json(name: str, url: str, json_path: str):
-    """
-    Writes repository to jsonl
-    :param name: repository name
-    :param url: repository github url
-    :param json_path: file path
-    """
-    repo = Repo(name)
-    with open(json_path, 'w') as file:
-        for commit in get_repo_changes(repo, url):
-            save_to_json(commit, file)
-
-
-def save_to_json(data, file: TextIO):
-    """
-    Save serializable data to json format
-    :param data: json-serializable data
-    :param file: opened json file
-    """
-    file.write(json.dumps(data) + "\n")
