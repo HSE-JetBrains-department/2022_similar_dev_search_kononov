@@ -114,8 +114,9 @@ class AllDevStats:
         metrics = list(scores[dev_name])
         del scores[dev_name]
         similar_devs = {}
+        reversed_metrics = ["experience","identifier_similarity"]
         for metric in metrics:
-            similar_devs[metric] = get_top_k_from_devs_by_metric(scores, metric, k)
+            similar_devs[metric] = get_top_k_from_devs_by_metric(scores, metric, k, metric in reversed_metrics)
         return similar_devs
 
     def get_language_distribution(self, compared_dev_name, other_dev_name,
@@ -135,6 +136,8 @@ class AllDevStats:
         distribution_dev = dict((language, lines / dev_lines)
                                 for (language, lines) in
                                 self.devs[compared_dev_name].languages.items())
+        if dev_lines == 0 or other_dev_lines == 0:
+            return 1 if (dev_lines != 0 or other_dev_lines != 0) else 0, dev_lines, other_dev_lines
         distribution_other_dev = dict((language, lines / other_dev_lines)
                                       for (language, lines) in
                                       self.devs[other_dev_name].languages.items())

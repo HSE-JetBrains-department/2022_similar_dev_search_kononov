@@ -2,6 +2,7 @@ import json
 import os
 
 from dulwich import porcelain
+from dulwich.client import HTTPUnauthorized
 
 from dev_stats import AllDevStats
 from parsefile import extract_languages
@@ -26,7 +27,15 @@ def make_stats(repos_list_path: str, results_path: str):
     for key in repos_list:
         key_without_slashes = key.replace("/", "-")
         if key_without_slashes not in cloned_repos:  # 1. Clone repository
-            porcelain.clone("https://github.com/" + key, setup.repo_folder / key_without_slashes)
+            try:
+                porcelain.clone("https://github.com/" + key,
+                                setup.repo_folder / key_without_slashes)
+            except FileNotFoundError:
+                setup.logger.error(f"repository {key} not cloneable")
+                continue
+            except HTTPUnauthorized:
+                setup.logger.error(f"repository {key} not found")
+                continue
         # 2, 3. Add identifiers
         repo_dict = extract_languages(setup.repo_folder / key_without_slashes)
         # 4. Extract commits, 5. Add dev stats

@@ -64,15 +64,16 @@ def get_ngrams_dict_overlap(ngrams1: dict, ngrams2: dict) -> float:
     return score
 
 
-def get_top_k_from_devs_by_metric(devs: dict, metric: str, k: int) -> list:
+def get_top_k_from_devs_by_metric(devs: dict, metric: str, k: int, reversed: bool) -> list:
     """
     Get list of names of top developers by metric
     :param devs: dictionary with developer names and DevStats
     :param metric: metric to sort by
     :param k: number of top names to return
+    :param reversed: reverse sorted list if true
     :return: k top developer names by metric
     """
-    tuple_list = sorted(devs.items(), key=lambda item: item[1][metric])
+    tuple_list = sorted(devs.items(), key=lambda item: item[1][metric], reverse=reversed)
     return [name_stats[0] for name_stats in tuple_list][:k]
 
 
