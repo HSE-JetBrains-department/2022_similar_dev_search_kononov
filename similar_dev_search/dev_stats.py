@@ -15,18 +15,11 @@ class DevStats:
                  variables=None,
                  classes=None,
                  functions=None):
-        if functions is None:
-            functions = defaultdict(float)
-        if classes is None:
-            classes = defaultdict(float)
-        if variables is None:
-            variables = defaultdict(float)
-        if languages is None:
-            languages = defaultdict(float)
-        self.languages = languages
-        self.variables = variables
-        self.classes = classes
-        self.functions = functions
+        return_if_exist = lambda x: x if x else defaultdict(float)
+        self.languages = return_if_exist(languages)
+        self.variables = return_if_exist(variables)
+        self.classes = return_if_exist(classes)
+        self.functions = return_if_exist(functions)
 
     def update(self, file: dict, commit: dict):
         """
@@ -47,7 +40,7 @@ class DevStats:
 
     def get_experience(self) -> float:
         """
-        Get total lines coded.
+        Get total lines coded by developer.
         :return: total_lines in all languages
         """
         total_lines = 0.0
