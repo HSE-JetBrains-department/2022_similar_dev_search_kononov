@@ -6,7 +6,10 @@ repo_folder: Path
 enry_folder: Path
 
 
-def setup(enry_folder_path: str = "../", repo_folder_path: str = "../repos", ):
+def setup(
+    enry_folder_path: str = "../",
+    repo_folder_path: str = "../repos",
+):
     """
     Create folder to save cloned repos. Specify enry folder
     :param enry_folder_path: enry executable should be inside this folder
@@ -15,8 +18,10 @@ def setup(enry_folder_path: str = "../", repo_folder_path: str = "../repos", ):
     global repo_folder, enry_folder
     enry_folder = Path(enry_folder_path)
     if not enry_folder.exists():
-        raise FileNotFoundError("Enry folder not found. Install enry for your os "
-                                "and specify path to the containing folder")
+        raise FileNotFoundError(
+            "Enry folder not found. Install enry for your os "
+            "and specify path to the containing folder"
+        )
     repo_folder = Path(repo_folder_path)
     repo_folder.mkdir(parents=True, exist_ok=True)
 

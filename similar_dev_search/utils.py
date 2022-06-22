@@ -10,7 +10,7 @@ def split_name_and_mail(name_and_mail: str) -> Tuple:
     """
     array = name_and_mail.split(" <")
     name = array[0]
-    mail = array[1][:array[1].rindex(">")]
+    mail = array[1][: array[1].rindex(">")]
     return name, mail
 
 
@@ -48,7 +48,7 @@ def get_ngram(ident: str, n: int):
     """
     ident_len = len(ident) - n + 1
     for i in range(ident_len):
-        yield ident[i:i + n]
+        yield ident[i : i + n]
 
 
 def get_ngrams_dict_overlap(ngrams1: dict, ngrams2: dict) -> float:
@@ -65,7 +65,9 @@ def get_ngrams_dict_overlap(ngrams1: dict, ngrams2: dict) -> float:
     return score
 
 
-def get_top_k_from_devs_by_metric(devs: dict, metric: str, k: int, reversed: bool) -> list:
+def get_top_k_from_devs_by_metric(
+    devs: dict, metric: str, k: int, reversed: bool
+) -> list:
     """
     Get list of names of top developers by metric
     :param devs: dictionary with developer names and DevStats
@@ -74,7 +76,9 @@ def get_top_k_from_devs_by_metric(devs: dict, metric: str, k: int, reversed: boo
     :param reversed: reverse sorted list if true
     :return: k top developer names by metric
     """
-    tuple_list = sorted(devs.items(), key=lambda item: item[1][metric], reverse=reversed)
+    tuple_list = sorted(
+        devs.items(), key=lambda item: item[1][metric], reverse=reversed
+    )
     return [name_stats[0] for name_stats in tuple_list][:k]
 
 

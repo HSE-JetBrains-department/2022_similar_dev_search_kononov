@@ -28,8 +28,9 @@ def make_stats(repos_list_path: str, results_path: str):
         key_without_slashes = key.replace("/", "-")
         if key_without_slashes not in cloned_repos:  # 1. Clone repository
             try:
-                porcelain.clone("https://github.com/" + key,
-                                setup.repo_folder / key_without_slashes)
+                porcelain.clone(
+                    "https://github.com/" + key, setup.repo_folder / key_without_slashes
+                )
             except FileNotFoundError:
                 setup.logger.error(f"repository {key} not cloneable")
                 continue
@@ -39,7 +40,8 @@ def make_stats(repos_list_path: str, results_path: str):
         # 2, 3. Add identifiers
         repo_dict = extract_languages(setup.repo_folder / key_without_slashes)
         # 4. Extract commits, 5. Add dev stats
-        all_dev_stats.repo_to_dev_stats(key_without_slashes, "https://github.com/" + key,
-                                        repo_dict)
+        all_dev_stats.repo_to_dev_stats(
+            key_without_slashes, "https://github.com/" + key, repo_dict
+        )
     with open(results_path, "w") as file_with_results:
         file_with_results.write(json.dumps(all_dev_stats.to_json()))

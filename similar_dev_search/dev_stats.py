@@ -5,16 +5,16 @@ from dulwich.repo import Repo
 
 from extract import get_repo_changes
 import setup
-from utils import get_ngrams, get_ngrams_dict_overlap, get_sorted_dict_by_value, \
-    get_top_k_from_devs_by_metric
+from utils import (
+    get_ngrams,
+    get_ngrams_dict_overlap,
+    get_sorted_dict_by_value,
+    get_top_k_from_devs_by_metric,
+)
 
 
 class DevStats:
-    def __init__(self,
-                 languages=None,
-                 variables=None,
-                 classes=None,
-                 functions=None):
+    def __init__(self, languages=None, variables=None, classes=None, functions=None):
         return_if_exist = lambda x: x if x else defaultdict(float)
         self.languages = return_if_exist(languages)
         self.variables = return_if_exist(variables)
@@ -27,7 +27,9 @@ class DevStats:
         :param file: dictionary with identifiers collected from file
         :param commit: dictionary with commit info
         """
-        self.languages[file["language"]] = self.languages[file["language"]] + commit["added"]
+        self.languages[file["language"]] = (
+            self.languages[file["language"]] + commit["added"]
+        )
         if file["lines_number"] == 0:  # prevent division by zero
             return
         weight = commit["added"] / file["lines_number"]
@@ -64,10 +66,12 @@ class DevStats:
         Create dictionary of DevStats instance for json serialization
         :return: json-serializable dict with dev stats
         """
-        return {"languages": get_sorted_dict_by_value(self.languages),
-                "variables": get_sorted_dict_by_value(self.variables),
-                "classes": get_sorted_dict_by_value(self.classes),
-                "functions": get_sorted_dict_by_value(self.functions)}
+        return {
+            "languages": get_sorted_dict_by_value(self.languages),
+            "variables": get_sorted_dict_by_value(self.variables),
+            "classes": get_sorted_dict_by_value(self.classes),
+            "functions": get_sorted_dict_by_value(self.functions),
+        }
 
 
 @dataclass
@@ -105,23 +109,34 @@ class AllDevStats:
         precalculated_dev_lines = self.devs[dev_name].get_experience()
         scores = {}
         for other_dev_name, other_dev_stats in self.devs.items():
-            language_distance, dev_lines, other_dev_lines = \
-                self.get_language_distribution(dev_name, other_dev_name, precalculated_dev_lines)
-            scores[other_dev_name] = \
-                {"language_distance": language_distance,
-                 "experience": min(dev_lines, other_dev_lines) / max(dev_lines, other_dev_lines),
-                 "identifier_similarity": self.get_identifier_similarity(dev_name, other_dev_name)}
+            (
+                language_distance,
+                dev_lines,
+                other_dev_lines,
+            ) = self.get_language_distribution(
+                dev_name, other_dev_name, precalculated_dev_lines
+            )
+            scores[other_dev_name] = {
+                "language_distance": language_distance,
+                "experience": min(dev_lines, other_dev_lines)
+                / max(dev_lines, other_dev_lines),
+                "identifier_similarity": self.get_identifier_similarity(
+                    dev_name, other_dev_name
+                ),
+            }
         metrics = list(scores[dev_name])
         del scores[dev_name]
         similar_devs = {}
         reversed_metrics = ["experience", "identifier_similarity"]
         for metric in metrics:
-            similar_devs[metric] = get_top_k_from_devs_by_metric(scores, metric, k,
-                                                                 metric in reversed_metrics)
+            similar_devs[metric] = get_top_k_from_devs_by_metric(
+                scores, metric, k, metric in reversed_metrics
+            )
         return similar_devs
 
-    def get_language_distribution(self, compared_dev_name, other_dev_name,
-                                  precalculated_dev_lines=-1.0) -> (float, float, float):
+    def get_language_distribution(
+        self, compared_dev_name, other_dev_name, precalculated_dev_lines=-1.0
+    ) -> (float, float, float):
         """
         Get language use distance (how similar are languages used by developers)
         and total lines coded for two developers
@@ -131,17 +146,26 @@ class AllDevStats:
         calculated beforehand for faster execution
         :return: distance for language use and number of total lines coded for both developers
         """
-        dev_lines = self.devs[compared_dev_name].get_experience() \
-            if precalculated_dev_lines == -1.0 else precalculated_dev_lines
+        dev_lines = (
+            self.devs[compared_dev_name].get_experience()
+            if precalculated_dev_lines == -1.0
+            else precalculated_dev_lines
+        )
         other_dev_lines = self.devs[other_dev_name].get_experience()
-        distribution_dev = dict((language, lines / dev_lines)
-                                for (language, lines) in
-                                self.devs[compared_dev_name].languages.items())
+        distribution_dev = dict(
+            (language, lines / dev_lines)
+            for (language, lines) in self.devs[compared_dev_name].languages.items()
+        )
         if dev_lines == 0 or other_dev_lines == 0:
-            return 1 if (dev_lines != 0 or other_dev_lines != 0) else 0, dev_lines, other_dev_lines
-        distribution_other_dev = dict((language, lines / other_dev_lines)
-                                      for (language, lines) in
-                                      self.devs[other_dev_name].languages.items())
+            return (
+                1 if (dev_lines != 0 or other_dev_lines != 0) else 0,
+                dev_lines,
+                other_dev_lines,
+            )
+        distribution_other_dev = dict(
+            (language, lines / other_dev_lines)
+            for (language, lines) in self.devs[other_dev_name].languages.items()
+        )
         distance = 0.0
         for language, usage in distribution_dev.items():
             if language not in distribution_other_dev:
@@ -166,5 +190,7 @@ class AllDevStats:
         Create dictionary of AllDevStats instance for json serialization
         :return: json-serializable dict containing all dev stats
         """
-        return {"devs": {key: value.to_json() for key, value in self.devs.items()},
-                "mails": dict(self.mails)}
+        return {
+            "devs": {key: value.to_json() for key, value in self.devs.items()},
+            "mails": dict(self.mails),
+        }
