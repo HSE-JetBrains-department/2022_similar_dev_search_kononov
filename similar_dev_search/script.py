@@ -68,6 +68,10 @@ def add_search_command(subparsers_action: argparse.Action):
     search_parser.add_argument("-n", "--name", type=str, help="Name of searched developer.Put it "
                                                               "in quotations if contains spaces")
     search_parser.add_argument("-m", "--mail", type=str, help="Mail of searched developer")
+    search_parser.add_argument("-qd", "--quantity-devs", type=int,
+                               help="Number of similar devs to show", default=5)
+    search_parser.add_argument("-qi", "--quantity-identifiers", type=int,
+                               help="Number of top identifiers to show", default=5)
 
 
 def run_stargazers(stargazers_args: argparse.Namespace):
@@ -77,10 +81,10 @@ def run_stargazers(stargazers_args: argparse.Namespace):
     """
     stargazers_map = extract_stargazers(repo_name=stargazers_args.repo_path,
                                         key=stargazers_args.key,
-                                        repos_per_user=stargazers_args.repos_per_user,
-                                        stargazers_number=stargazers_args.stargazers_number,
-                                        top_repos_number=stargazers_args.top_repos_number,
-                                        requests_per_page=stargazers_args.requests_per_page
+                                        repos_per_user=int(stargazers_args.repos_per_user),
+                                        stargazers_number=int(stargazers_args.stargazers_number),
+                                        top_repos_number=int(stargazers_args.top_repos_number),
+                                        requests_per_page=int(stargazers_args.requests_per_page)
                                         )
     with open(stargazers_args.json_path, "w") as json_file:
         json_file.write(json.dumps(stargazers_map))
@@ -100,4 +104,6 @@ if __name__ == "__main__":
     elif args.command == "stargazers":
         run_stargazers(args)
     elif args.command == "search":
-        search(args.name, args.path)
+        search(args.name, args.path,
+               number_of_similar_devs=int(args.quantity_devs),
+               number_of_top_identifiers=int(args.quantity_identifiers))
