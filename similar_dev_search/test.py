@@ -17,7 +17,8 @@ class Test(TestCase):
         assert list(utils.get_ngram("abcdefgh", 3)) == [
             "abc",
             "bcd",
-            "cde","def",
+            "cde",
+            "def",
             "efg",
             "fgh",
         ]
