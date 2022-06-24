@@ -17,7 +17,7 @@ def is_binary(repo: Repo, change: TreeChange) -> bool:
     :param change: single change between two trees
     :return: does this blob contain non utf-8 characters
     """
-    sha = (change.new.sha or change.old.sha)
+    sha = change.new.sha or change.old.sha
     try:
         repo.get_object(sha).data.decode()
     except UnicodeDecodeError:
@@ -43,8 +43,9 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     :return: number of lines added/deleted
     """
     diff_calc = difflib.Differ()
-    diffs = diff_calc.compare(into_lines(repo, change.old.sha),
-                              into_lines(repo, change.new.sha))
+    diffs = diff_calc.compare(
+        into_lines(repo, change.old.sha), into_lines(repo, change.new.sha)
+    )
     added = 0
     deleted = 0
     for diff in diffs:
@@ -55,9 +56,14 @@ def calc_diff(repo: Repo, change: TreeChange) -> Tuple[int, int]:
     return added, deleted
 
 
-def update_change_dictionary(repo: Repo, sha: bytes, path: str, change_dict: defaultdict,
-                             missing: str,
-                             existing: str):
+def update_change_dictionary(
+    repo: Repo,
+    sha: bytes,
+    path: str,
+    change_dict: defaultdict,
+    missing: str,
+    existing: str,
+):
     """
     Write number of added and deleted lines for a file if it was created or deleted
     :param repo: repository with change
@@ -69,8 +75,9 @@ def update_change_dictionary(repo: Repo, sha: bytes, path: str, change_dict: def
     """
     change_dict[path][existing] = len(into_lines(repo, sha))
     change_dict[path][missing] = 0
-    change_dict[path]["blob_id"] = str(
-        repo.get_object(sha).id.decode()) if missing == "deleted" else str(None)
+    change_dict[path]["blob_id"] = (
+        str(repo.get_object(sha).id.decode()) if missing == "deleted" else str(None)
+    )
 
 
 def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
@@ -89,28 +96,34 @@ def get_diff(repo: Repo, entry: WalkEntry) -> Dict[str, Dict]:
             continue
         try:
             if change.old.sha is None:
-                update_change_dictionary(repo=repo,
-                                         sha=change.new.sha,
-                                         path=change.new.path.decode(),
-                                         change_dict=res,
-                                         missing="deleted",
-                                         existing="added")
+                update_change_dictionary(
+                    repo=repo,
+                    sha=change.new.sha,
+                    path=change.new.path.decode(),
+                    change_dict=res,
+                    missing="deleted",
+                    existing="added",
+                )
             elif change.new.sha is None:
-                update_change_dictionary(repo=repo,
-                                         sha=change.old.sha,
-                                         path=change.old.path.decode(),
-                                         change_dict=res,
-                                         missing="added",
-                                         existing="deleted")
+                update_change_dictionary(
+                    repo=repo,
+                    sha=change.old.sha,
+                    path=change.old.path.decode(),
+                    change_dict=res,
+                    missing="added",
+                    existing="deleted",
+                )
             else:
                 path = change.new.path.decode()
                 res[path]["added"], res[path]["deleted"] = calc_diff(repo, change)
                 res[path]["blob_id"] = str(repo.get_object(change.new.sha).id.decode())
         except UnicodeDecodeError as e:
             # Handling corrupted files
-            setup.logger.error(f"Exception in repository: {repo.path},"
-                               f" file: {(change.new.path or change.old.path).decode()},"
-                               f" cause: {e}")
+            setup.logger.error(
+                f"Exception in repository: {repo.path},"
+                f" file: {(change.new.path or change.old.path).decode()},"
+                f" cause: {e}"
+            )
             continue
     return res
 
@@ -128,12 +141,14 @@ def get_repo_changes(repo: Repo, url: str) -> Generator[Dict[str, Any], None, No
             diffs = get_diff(repo, entry)
             for path in diffs.keys():
                 (author, mail) = split_name_and_mail(str(entry.commit.author.decode()))
-                commit = {"author": author,
-                          "mail": mail,
-                          "commit_sha": str(entry.commit.id.decode()),
-                          "url": url,
-                          "path": path,
-                          "added": diffs[path]["added"],
-                          "deleted": diffs[path]["deleted"],
-                          "blob_id": diffs[path]["blob_id"]}
+                commit = {
+                    "author": author,
+                    "mail": mail,
+                    "commit_sha": str(entry.commit.id.decode()),
+                    "url": url,
+                    "path": path,
+                    "added": diffs[path]["added"],
+                    "deleted": diffs[path]["deleted"],
+                    "blob_id": diffs[path]["blob_id"],
+                }
                 yield commit

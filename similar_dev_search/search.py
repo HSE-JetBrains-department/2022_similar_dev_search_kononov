@@ -4,9 +4,12 @@ from dev_stats import AllDevStats, DevStats
 from utils import dict_keys_to_string
 
 
-def search(dev_name: str, stats_path: str,
-           number_of_similar_devs: int = 5,
-           number_of_top_identifiers: int = 5):
+def search(
+    dev_name: str,
+    stats_path: str,
+    number_of_similar_devs: int = 5,
+    number_of_top_identifiers: int = 5,
+):
     """
     Search is done by three categories:
     similar languages (language lines are nearest in relation to each other),
@@ -22,11 +25,18 @@ def search(dev_name: str, stats_path: str,
         dicts_with_stats = json.loads(stats_file.read())
     if dev_name not in dicts_with_stats["devs"]:
         raise ValueError(f"No developer with name {dev_name} found")
-    stats = dict((name, DevStats(languages=info["languages"],
-                                 variables=info["variables"],
-                                 classes=info["classes"],
-                                 functions=info["functions"]))
-                 for (name, info) in dicts_with_stats["devs"].items())
+    stats = dict(
+        (
+            name,
+            DevStats(
+                languages=info["languages"],
+                variables=info["variables"],
+                classes=info["classes"],
+                functions=info["functions"],
+            ),
+        )
+        for (name, info) in dicts_with_stats["devs"].items()
+    )
     all_dev_stats = AllDevStats(stats, dicts_with_stats["mails"])
     print(get_developer_info(all_dev_stats.devs[dev_name], number_of_top_identifiers))
     if len(all_dev_stats.devs) == 1:
@@ -46,11 +56,13 @@ def get_developer_info(dev_stats: DevStats, identifiers_number: int):
     :param identifiers_number: number of returned identifiers
     :return: string representing developers by its languages and identifiers
     """
-    return f"Developer used languages:\n" \
-           f"{dict_keys_to_string(dev_stats.languages, len(dev_stats.languages))}\n" \
-           f"Developer top variable identifiers:\n" \
-           f"{dict_keys_to_string(dev_stats.variables, identifiers_number)}\n" \
-           f"Developer top function identifiers:\n" \
-           f"{dict_keys_to_string(dev_stats.functions, identifiers_number)}\n" \
-           f"Developer top class identifiers:\n" \
-           f"{dict_keys_to_string(dev_stats.classes, identifiers_number)}"
+    return (
+        f"Developer used languages:\n"
+        f"{dict_keys_to_string(dev_stats.languages, len(dev_stats.languages))}\n"
+        f"Developer top variable identifiers:\n"
+        f"{dict_keys_to_string(dev_stats.variables, identifiers_number)}\n"
+        f"Developer top function identifiers:\n"
+        f"{dict_keys_to_string(dev_stats.functions, identifiers_number)}\n"
+        f"Developer top class identifiers:\n"
+        f"{dict_keys_to_string(dev_stats.classes, identifiers_number)}"
+    )

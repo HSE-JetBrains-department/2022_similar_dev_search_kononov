@@ -39,13 +39,14 @@ def wait_for_request(github_account: Github):
     time.sleep(max(0, reset_timestamp - calendar.timegm(time.gmtime())))
 
 
-def extract_stargazers(repo_name: str,
-                       key: str,
-                       repos_per_user: int = 100,
-                       stargazers_number: int = 100,
-                       top_repos_number: int = 100,
-                       requests_per_page: int = 100
-                       ) -> Dict[str, int]:
+def extract_stargazers(
+    repo_name: str,
+    key: str,
+    repos_per_user: int = 100,
+    stargazers_number: int = 100,
+    top_repos_number: int = 100,
+    requests_per_page: int = 100,
+) -> Dict[str, int]:
     """
     Get dictionary of repository names and number of stargazers, that starred
     repository with repo_name
@@ -82,7 +83,10 @@ def extract_stargazers(repo_name: str,
                     continue
                 stars_per_repo[starred_repo.full_name] += 1
                 starred_repos_number += 1
-        except (RateLimitExceededException, GithubException) as e:  # throws server error 502
+        except (
+            RateLimitExceededException,
+            GithubException,
+        ) as e:  # throws server error 502
             logger.exception(e)
             wait_for_request(github_account)
     return dict(stars_per_repo.most_common(top_repos_number))
